@@ -53,11 +53,11 @@ async def call_llm(messages: list[dict], system_prompt: str = "") -> str:
     if settings.llm_provider == "doubao":
         api_key = settings.doubao_api_key
         base_url = settings.doubao_base_url
-        model = settings.doubao_model
+        model = settings.doubao_chat_model
     else:
         api_key = settings.deepseek_api_key
         base_url = settings.deepseek_base_url
-        model = settings.deepseek_model
+        model = settings.deepseek_chat_model
 
     full_messages = []
     if system_prompt:
@@ -77,6 +77,27 @@ async def call_llm(messages: list[dict], system_prompt: str = "") -> str:
         )
         data = resp.json()
         return data["choices"][0]["message"]["content"]
+
+
+async def create_embedding(text: str) -> list[float]:
+    """
+    调用豆包嵌入模型生成向量，用于知识库存储和检索。
+    """
+    api_key = settings.doubao_api_key
+    base_url = settings.doubao_base_url
+    model = settings.doubao_embedding_model
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            f"{base_url}/embeddings",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={
+                "model": model,
+                "input": text,
+            },
+        )
+        data = resp.json()
+        return data["data"][0]["embedding"]
 
 
 async def answer_question(
