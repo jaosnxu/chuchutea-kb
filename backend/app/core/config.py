@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     doubao_chat_model: str = "doubao-seed-1-6-251015"       # ✅ 对话+图片理解
     doubao_embedding_model: str = "doubao-embedding-vision-251215"  # 向量嵌入（需控制台建接入点）
 
-    app_name: str = "TeaMind"
+    app_name: str = "CHUCHUTEA"
     debug: bool = True
 
     class Config:

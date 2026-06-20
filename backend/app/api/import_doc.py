@@ -1,6 +1,7 @@
 import io
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.knowledge import KnowledgeEntry
@@ -141,3 +142,42 @@ async def upload_document(
         "module": module,
         "items": created,
     }
+
+
+class PasteRequest(BaseModel):
+    title_zh: str = ""
+    content_zh: str
+    content_ru: str = ""
+
+
+@router.post("/paste")
+async def paste_text(req: PasteRequest, db: AsyncSession = Depends(get_db)):
+    """粘贴文本，AI 自动分类模块"""
+    from app.services.rag_service import call_llm
+
+    # AI 自动分类
+    prompt = (
+        f"以下是一段奶茶连锁店的知识内容。请判断它属于哪个模块，只回复模块英文名（一个词）。\n"
+        f"可选模块：product(产品), sop(操作SOP), training(培训), store(门店), marketing(营销), "
+        f"brand(品牌), franchise(特许), operations(运营), equipment(设备), maintenance(维修)\n\n"
+        f"标题：{req.title_zh}\n内容：{req.content_zh[:300]}\n\n模块："
+    )
+    try:
+        module = (await call_llm([{"role": "user", "content": prompt}])).strip().lower()
+        if module not in ["product", "sop", "training", "store", "marketing", "brand", "franchise", "operations", "equipment", "maintenance"]:
+            module = "product"
+    except:
+        module = "product"
+
+    zh, ru = split_bilingual(req.content_zh)
+    knowledge = KnowledgeEntry(
+        module=module,
+        title_zh=req.title_zh or req.content_zh[:40],
+        title_ru="",
+        content_zh=zh or req.content_zh,
+        content_ru=ru or req.content_ru,
+    )
+    db.add(knowledge)
+    await db.commit()
+
+    return {"id": knowledge.id, "module": module, "message": "已添加"}
