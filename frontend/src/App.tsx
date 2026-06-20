@@ -51,6 +51,7 @@ const App: React.FC = () => {
     JSON.parse(localStorage.getItem('allowed_modules') || '[]')
   )
   const [convSearch, setConvSearch] = useState('')
+  const [saveMsg, setSaveMsg] = useState('')
   const [convs, setConvs] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState('')
   const [input, setInput] = useState('')
@@ -79,17 +80,17 @@ const App: React.FC = () => {
   useEffect(() => { chatRef.current?.scrollTo(0, chatRef.current.scrollHeight) }, [messages, loading])
 
   const saveConvToServer = (id: string, msgs: Message[], lang: string, title?: string) => {
-    fetch(`/api/conversations/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: title || msgs[0]?.content?.slice(0, 30) || '新对话', currentLang, messages: msgs }),
+    fetch(`/api/conversations/${id}/full`, {
+      method: 'PUT', headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title || msgs[0]?.content?.slice(0, 30) || '新对话', lang, messages: msgs, pinned: false }),
     }).catch(() => {})
   }
 
   const newChat = async () => {
     try {
       const r = await fetch('/api/conversations/save', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '新对话', lang: currentLang, messages: [] }),
+        method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '新对话', lang: currentLang, messages: [], pinned: false }),
       })
       const d = await r.json()
       const c: Conversation = { id: d.id, title: '新对话', lang: currentLang, messages: [], pinned: false }
@@ -120,6 +121,19 @@ const App: React.FC = () => {
     } catch {}
   }
 
+  const saveLang = async (lang: 'zh' | 'ru') => { if (!active) return
+    const updated = { ...active, lang }
+    setConvs(prev => prev.map(c => c.id === activeId ? updated : c))
+    try {
+      await fetch(`/api/conversations/${activeId}/full`, {
+        method: 'PUT',
+        headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: active.title, lang, messages: active.messages, pinned: false })
+      })
+      setSaveMsg(lang === 'zh' ? '✅ 已保存' : '✅ Сохранено')
+      setTimeout(() => setSaveMsg(''), 2000)
+    } catch { setSaveMsg('❌ 保存失败') }
+  }
   const setLang = (lang: 'zh' | 'ru') => {
     if (!active) return
     const updated = { ...active, lang }
@@ -237,6 +251,8 @@ const App: React.FC = () => {
                   fontWeight: currentLang === 'ru' ? 600 : 400, color: currentLang === 'ru' ? '#1a1a1a' : '#999'
                 }}>🇷🇺 Русский</button>
               </div>
+              <button onClick={() => saveLang(currentLang)} style={{ width: '100%', marginTop: 8, padding: '8px', borderRadius: 6, border: 'none', background: '#1a1a1a', color: '#fff', cursor: 'pointer', fontSize: 12 }}>💾 {tl('保存', currentLang)}</button>
+              {saveMsg && <div style={{ marginTop: 4, fontSize: 11, color: '#666' }}>{saveMsg}</div>}
             </div>
 
             {/* 门店 */}
