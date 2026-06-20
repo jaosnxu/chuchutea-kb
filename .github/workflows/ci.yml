@@ -1,0 +1,75 @@
+name: CHUCHUTEA CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: teammind
+          POSTGRES_PASSWORD: teammind
+          POSTGRES_DB: teammind
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Verify imports
+        run: |
+          cd backend
+          python -c "from app.main import app; print('✅ Backend imports OK')"
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://teammind:teammind@localhost:5432/teammind
+        run: |
+          cd backend
+          python -c "
+          import asyncio
+          from app.core.database import engine, Base
+          async def init():
+              async with engine.begin() as conn:
+                  await conn.run_sync(Base.metadata.create_all)
+              print('✅ Database tables created')
+          asyncio.run(init())
+          "
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install & build
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          echo "✅ Frontend build OK"
