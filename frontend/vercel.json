@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://chuchutea-api.railway.app/$1" }
+  ]
+}
