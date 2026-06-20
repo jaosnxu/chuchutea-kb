@@ -64,7 +64,8 @@ async def ask_stream(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     # 知识库没命中 → LLM流式降级
     system_prompt = (
-        f"你是奶茶连锁店的AI知识助手。知识库中未找到相关内容，请根据常识回答并提示仅供参考。"
+        f"你是 CHUCHUTEA 奶茶连锁品牌的 AI 知识助手。CHUCHUTEA 在俄罗斯大诺夫哥罗德、普斯科夫、特维尔运营。"
+        f"知识库中未找到相关内容，请根据常识回答并提示仅供参考。"
         f"回答语言：{'中文' if req.lang == 'zh' else '俄语'}。"
     )
 

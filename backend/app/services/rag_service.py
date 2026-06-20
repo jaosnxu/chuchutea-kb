@@ -14,13 +14,16 @@ async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Opti
     """
     from sqlalchemy import or_, and_
 
-    # 拆分查询为关键词（简单按空格和常见标点分）
+    # 拆分查询为关键词
     keywords = []
-    if any('一' <= c <= '鿿' for c in query):
-        chinese_chars = ''.join(c for c in query if '一' <= c <= '鿿' or c.isalpha())
-        keywords = [chinese_chars[i:i+2] for i in range(len(chinese_chars)-1)]
-    else:
-        keywords = [k.strip() for k in query.split() if len(k.strip()) >= 2]
+    # 字母语言（俄语/英语）：直接按空格分词
+    alpha_words = [k.strip().lower() for k in query.replace('?', ' ').replace('？', ' ').split() if len(k.strip()) >= 2]
+    keywords.extend(alpha_words)
+    # 中文：二字滑动窗口
+    cjk_chars = ''.join(c for c in query if '\u4e00' <= c <= '\u9fff')
+    for i in range(len(cjk_chars)-1):
+        keywords.append(cjk_chars[i:i+2])
+    keywords = list(set(kw for kw in keywords if kw))
 
     if not keywords:
         keywords = [query]
@@ -70,10 +73,10 @@ async def call_llm(messages: list[dict], system_prompt: str = "") -> str:
     调用大模型（支持豆包和 DeepSeek），
     统一通过 OpenAI 兼容接口。
     """
-    if settings.llm_provider == "doubao":
+    if settings.text_model == "doubao":
         api_key = settings.doubao_api_key
         base_url = settings.doubao_base_url
-        model = settings.doubao_chat_model
+        model = settings.doubao_vision_model
     else:
         api_key = settings.deepseek_api_key
         base_url = settings.deepseek_base_url
@@ -124,10 +127,10 @@ async def create_embedding(text: str) -> list[float]:
 
 async def call_llm_stream(messages: list[dict], system_prompt: str = ""):
     """流式调用大模型，逐chunk返回文本"""
-    if settings.llm_provider == "doubao":
+    if settings.text_model == "doubao":
         api_key = settings.doubao_api_key
         base_url = settings.doubao_base_url
-        model = settings.doubao_chat_model
+        model = settings.doubao_vision_model
     else:
         api_key = settings.deepseek_api_key
         base_url = settings.deepseek_base_url
@@ -205,7 +208,7 @@ async def answer_question(
     else:
         # 知识库无匹配 → 降级为自由对话
         system_prompt = (
-            f"你是奶茶连锁店的 AI 知识助手。注意：你当前的知识库中没有找到与用户问题直接相关的条目，"
+            f"你是 CHUCHUTEA 奶茶连锁品牌的 AI 知识助手。CHUCHUTEA 在俄罗斯大诺夫哥罗德、普斯科夫、特维尔运营。注意：你当前的知识库中没有找到与用户问题直接相关的条目，"
             f"请根据你的常识回答，并提示用户仅供参考。回答语言：{'中文' if lang == 'zh' else '俄语'}。"
         )
         messages = [{"role": "user", "content": query}]
