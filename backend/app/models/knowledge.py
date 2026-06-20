@@ -32,6 +32,8 @@ class KnowledgeEntry(Base):
     content_ru: Mapped[str] = mapped_column(Text, default="")
     image_url: Mapped[str] = mapped_column(String(1000), default="")
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=True)
+    keywords: Mapped[str] = mapped_column(Text, default='')
+    summary: Mapped[str] = mapped_column(Text, default='')
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

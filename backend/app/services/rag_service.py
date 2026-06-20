@@ -35,6 +35,7 @@ async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Opti
     for kw in keywords:
         conditions.append(title_col.ilike(f"%{kw}%"))
         conditions.append(content_col.ilike(f"%{kw}%"))
+        conditions.append(KnowledgeEntry.keywords.ilike(f"%{kw}%"))
 
     stmt = select(KnowledgeEntry).where(
         KnowledgeEntry.is_published == True,

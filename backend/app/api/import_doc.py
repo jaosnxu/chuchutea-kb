@@ -189,12 +189,22 @@ async def paste_text(req: PasteRequest, db: AsyncSession = Depends(get_db)):
         module = "product"
 
     zh, ru = split_bilingual(req.content_zh)
+    # AI 提取关键词+摘要
+    try:
+        kp = f"从以下内容提取3-5个关键词（逗号分隔）和一句话中文摘要：\n{req.content_zh[:300]}\n\n关键词："
+        kw = (await call_llm([{"role": "user", "content": kp}])).strip()
+        sp = f"用一句话总结以下内容：\n{req.content_zh[:300]}\n\n摘要："
+        summ = (await call_llm([{"role": "user", "content": sp}])).strip()
+    except:
+        kw = ""; summ = ""
     knowledge = KnowledgeEntry(
         module=module,
         title_zh=req.title_zh or req.content_zh[:40],
         title_ru="",
         content_zh=zh or req.content_zh,
         content_ru=ru or req.content_ru,
+        keywords=kw,
+        summary=summ,
     )
     db.add(knowledge)
     await db.commit()
