@@ -19,7 +19,7 @@ const KnowledgePanel: React.FC<Props> = ({ onClose }) => {
     form.append('file', file)
     form.append('module', 'auto')
     try {
-      const res = await fetch('/api/import/upload', { method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true' }, body: form })
+      const res = await fetch('/api/import/upload', { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'POST', body: form })
       const d = await res.json()
       setMsg(`✅ 导入 ${d.items?.length || 0} 条 · 模块：${d.module}`)
     } catch {
