@@ -81,7 +81,7 @@ const App: React.FC = () => {
   const saveConvToServer = (id: string, msgs: Message[], lang: string, title?: string) => {
     fetch(`/api/conversations/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: title || msgs[0]?.content?.slice(0, 30) || '新对话', lang, messages: msgs }),
+      body: JSON.stringify({ title: title || msgs[0]?.content?.slice(0, 30) || '新对话', currentLang, messages: msgs }),
     }).catch(() => {})
   }
 
@@ -134,7 +134,7 @@ const App: React.FC = () => {
     // Auto-detect language from user input
     const hasCyrillic = /[Ѐ-ӿ]/.test(q)
     const hasChinese = /[一-鿿]/.test(q)
-    const lang: 'zh' | 'ru' = hasCyrillic ? 'ru' : 'zh'
+    const replyLang: 'zh' | 'ru' = hasCyrillic ? 'ru' : 'zh'
     const history = messages.slice(-6)
     const msgs: Message[] = [...messages, { role: 'user', content: q }]
     setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: msgs } : c))
@@ -146,7 +146,7 @@ const App: React.FC = () => {
       const res = await fetch('/api/chat/ask/stream', {
         method: 'POST',
         headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, lang, history: history.map(h => ({ role: h.role, content: h.content })) }),
+        body: JSON.stringify({ query: q, lang: replyLang, history: history.map(h => ({ role: h.role, content: h.content })) }),
       })
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
@@ -172,7 +172,7 @@ const App: React.FC = () => {
 
       const allMsgs = [...msgs, { role: 'assistant' as const, content: fullText, source: meta.source, references: meta.references }]
       setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: allMsgs, title: c.title === '新对话' ? (msgs[0]?.content?.slice(0, MAX_TITLE) || '新对话') : c.title } : c))
-      saveConvToServer(activeId, allMsgs, lang)
+      saveConvToServer(activeId, allMsgs, currentLang)
     } catch {
       setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: [...msgs, { role: 'assistant', content: '⚠️ 连接失败' }] } : c))
     }
