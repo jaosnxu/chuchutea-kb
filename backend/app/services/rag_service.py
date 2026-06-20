@@ -184,16 +184,8 @@ async def answer_question(
 
     if knowledge_results:
         # 知识库有匹配 → 直接返回原文
-        if len(knowledge_results) == 1:
-            # 唯一匹配 → 返回原文
-            best = knowledge_results[0]
-            answer = best["content"]
-        else:
-            # 多条匹配 → 列出所有匹配摘要，让用户选
-            items = []
-            for r in knowledge_results:
-                items.append(f"【{r['title']}】（{r['module']}）")
-            answer = "找到以下相关内容，请细化你的问题：\n" + "\n".join(items)
+        best = knowledge_results[0]
+        answer = best["content"]
 
         return {
             "answer": answer,
