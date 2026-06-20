@@ -286,7 +286,7 @@ const App: React.FC = () => {
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
             placeholder={currentLang === 'zh' ? '输入你的问题...' : 'Введите ваш вопрос...'}
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1a1a1a' }}
           />
