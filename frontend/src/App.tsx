@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import AuthPage from './AuthPage'
 import KnowledgePanel from './KnowledgePanel'
 
+const MAX_TITLE = 40  // ChatGPT style truncation
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -36,6 +38,8 @@ const S = {
   welcome: { textAlign: 'center', padding: '40px 0' } as React.CSSProperties,
   msgRow: (role: string) => ({ display: 'flex', gap: 12, padding: '16px 0', flexDirection: role === 'user' ? 'row-reverse' : 'row' } as React.CSSProperties),
   msgBubble: (role: string) => ({ maxWidth: 620, padding: '10px 16px', borderRadius: role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: role === 'user' ? '#f0f0f0' : 'transparent', fontSize: 14, lineHeight: 1.75, whiteSpace: 'pre-wrap' as 'pre-wrap' } as React.CSSProperties),
+  /* ChatGPT-style hover reveal */
+  '.conv-item:hover .conv-actions': { display: 'flex !important' },
   inputWrap: { width: '100%', maxWidth: 720, margin: '16px auto 24px', border: '1px solid #e5e5e5', borderRadius: 16, background: '#f9f9f9', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 } as React.CSSProperties,
 }
 
@@ -45,6 +49,7 @@ const App: React.FC = () => {
   const [allowedModules, setAllowedModules] = useState<string[]>(
     JSON.parse(localStorage.getItem('allowed_modules') || '[]')
   )
+  const [convSearch, setConvSearch] = useState('')
   const [convs, setConvs] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState('')
   const [input, setInput] = useState('')
@@ -136,7 +141,7 @@ const App: React.FC = () => {
       const res = await fetch('/api/chat/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, lang }) })
       const d = await res.json()
       const updated = [...msgs, { role: 'assistant' as const, content: d.answer, references: d.references, source: d.source }]
-      setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: updated, title: msgs[0]?.content?.slice(0, 30) || '新对话' } : c))
+      setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: updated, title: c.title === '新对话' ? (msgs[0]?.content?.slice(0, MAX_TITLE) || '新对话') : c.title } : c))
       saveConvToServer(activeId, updated, lang)
     } catch {
       const updated = [...msgs, { role: 'assistant' as const, content: '⚠️ 服务连接失败' }]
@@ -230,20 +235,28 @@ const App: React.FC = () => {
           <>
             <div style={S.sidebarTop}>
               <button style={S.newChatBtn} onClick={newChat}>＋ 新对话</button>
+              <input
+                value={convSearch}
+                onChange={e => setConvSearch(e.target.value)}
+                placeholder="搜索对话..."
+                style={{ width: '100%', padding: '6px 10px', marginTop: 8, borderRadius: 6, border: '1px solid #e5e5e5', fontSize: 12, boxSizing: 'border-box', background: '#fff', outline: 'none' }}
+              />
             </div>
             <div style={S.historyList as React.CSSProperties}>
-              {convs.map(c => (
+              {convs.filter(c => !convSearch || c.title.toLowerCase().includes(convSearch.toLowerCase())).map(c => (
                 <div key={c.id} style={{ ...S.historyItem(c.id === activeId), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', fontSize: 13 }}
                     onClick={() => switchConv(c.id)}
-                    onDoubleClick={() => { const t = prompt('改名', c.title); if (t && t.trim()) renameConv(c.id, t.trim()) }}>
+                    title="双击改名">
                     {c.pinned ? '📌 ' : ''}{c.title}
                   </span>
-                  <span style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                  <span className="conv-actions" style={{ display: 'none', gap: 1, flexShrink: 0 }}>
+                    <button onClick={e => { e.stopPropagation(); renameConv(c.id, c.title) }} title="改名"
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12, padding: 2, color: '#999' }}>✎</button>
                     <button onClick={e => { e.stopPropagation(); togglePin(c.id, !c.pinned) }} title={c.pinned ? '取消置顶' : '置顶'}
-                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 10, padding: 2, color: c.pinned ? '#333' : '#ccc' }}>📌</button>
-                    <button onClick={e => { e.stopPropagation(); if (confirm('确定删除？')) deleteConv(c.id) }} title="删除"
-                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 10, padding: 2, color: '#ccc' }}>✕</button>
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, padding: 2, color: c.pinned ? '#333' : '#ccc' }}>📌</button>
+                    <button onClick={e => { e.stopPropagation(); if (confirm('删除？')) deleteConv(c.id) }} title="删除"
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, padding: 2, color: '#ccc' }}>🗑</button>
                   </span>
                 </div>
               ))}
