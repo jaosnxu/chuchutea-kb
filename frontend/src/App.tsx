@@ -55,7 +55,7 @@ const App: React.FC = () => {
   if(!token)return <AuthPage onLogin={handleLogin}/>
 
   return (
-    <div className="body">
+    <div className="layout">
       <Sidebar convs={convs} activeId={activeId} currentLang={currentLang} sidebarOpen={sidebarOpen}
         onSwitch={switchConv} onNewChat={newChat} onRename={renameConv} onDelete={deleteConv}
         onTogglePin={togglePin} onSettings={()=>setShowSettings(true)} />
