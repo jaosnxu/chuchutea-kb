@@ -5,22 +5,36 @@ interface Message {
   content: string
   references?: { title: string; module: string; id: string }[]
   images?: string[]
+  source?: string
 }
 
-function App() {
+const MODULES = [
+  { key: 'product', label: '🧋 产品库' },
+  { key: 'sop', label: '📋 操作SOP' },
+  { key: 'training', label: '📚 培训资料' },
+  { key: 'store', label: '🏪 门店信息' },
+  { key: 'marketing', label: '🎯 营销活动' },
+  { key: 'brand', label: '🏷️ 品牌' },
+  { key: 'franchise', label: '📜 特许经营' },
+  { key: 'operations', label: '⚙️ 运营管理' },
+  { key: 'equipment', label: '🔧 设备' },
+  { key: 'maintenance', label: '🛠️ 维修' },
+]
+
+const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: '你好！我是 TeaMind AI 知识助手。可以查询产品、SOP、培训资料、门店政策和营销活动。有什么可以帮你的？',
+      content: '你好！我是 TeaMind 知识助手。可以查询产品、SOP、培训、门店、设备、维修等内容。',
     },
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [lang, setLang] = useState<'zh' | 'ru'>('zh')
 
-  const send = async () => {
-    if (!input.trim() || loading) return
-    const query = input
+  const send = async (text?: string) => {
+    const query = (text || input).trim()
+    if (!query || loading) return
     setInput('')
     setMessages(prev => [...prev, { role: 'user', content: query }])
     setLoading(true)
@@ -32,124 +46,87 @@ function App() {
         body: JSON.stringify({ query, lang }),
       })
       const data = await res.json()
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.answer,
-        references: data.references,
-        images: data.images,
-      }])
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.answer,
+          references: data.references,
+          images: data.images,
+          source: data.source,
+        },
+      ])
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，服务暂时不可用。' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ 服务连接失败，请确认后端已启动。' }])
     }
     setLoading(false)
   }
 
-  const quickAsk = (text: string) => {
-    setInput(text)
-  }
-
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+    <div style={{ maxWidth: 800, margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column', background: '#faf7f2' }}>
+      {/* Top Bar */}
       <header style={{
-        padding: '16px 24px',
-        borderBottom: '1px solid #e5e7eb',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        padding: '12px 20px', borderBottom: '1px solid #e8ddd2', background: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 20 }}>🧋</span>
-          <span style={{ fontWeight: 700, fontSize: 18 }}>TeaMind</span>
-          <span style={{ fontSize: 12, color: '#9ca3af' }}>知识库问答</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>🧋</span>
+          <span style={{ fontWeight: 700, fontSize: 17, color: '#4a3a2a' }}>TeaMind</span>
+          <span style={{ fontSize: 11, color: '#8a7a6a', background: '#f5ede6', padding: '2px 8px', borderRadius: 10 }}>
+            知识优先
+          </span>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button
-            onClick={() => setLang('zh')}
-            style={{
-              padding: '4px 12px', borderRadius: 6, border: 'none',
-              background: lang === 'zh' ? '#f3e8dc' : 'transparent',
-              color: lang === 'zh' ? '#b8895e' : '#6b7280',
-              fontWeight: lang === 'zh' ? 600 : 400,
-              cursor: 'pointer',
-            }}
-          >
-            中
-          </button>
-          <button
-            onClick={() => setLang('ru')}
-            style={{
-              padding: '4px 12px', borderRadius: 6, border: 'none',
-              background: lang === 'ru' ? '#f3e8dc' : 'transparent',
-              color: lang === 'ru' ? '#b8895e' : '#6b7280',
-              fontWeight: lang === 'ru' ? 600 : 400,
-              cursor: 'pointer',
-            }}
-          >
-            РУ
-          </button>
+          <button onClick={() => setLang('zh')} style={{
+            padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: lang === 'zh' ? '#f5ede6' : 'transparent',
+            color: lang === 'zh' ? '#b8895e' : '#8a7a6a', fontWeight: lang === 'zh' ? 600 : 400, fontSize: 13,
+          }}>中</button>
+          <button onClick={() => setLang('ru')} style={{
+            padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: lang === 'ru' ? '#f5ede6' : 'transparent',
+            color: lang === 'ru' ? '#b8895e' : '#8a7a6a', fontWeight: lang === 'ru' ? 600 : 400, fontSize: 13,
+          }}>РУ</button>
         </div>
       </header>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
-        {/* Quick chips */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
         {messages.length === 1 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24, justifyContent: 'center' }}>
-            {[
-              { label: '🧋 查产品', query: '草莓多多是什么' },
-              { label: '📋 查 SOP', query: '制作流程' },
-              { label: '📚 培训资料', query: '培训材料' },
-              { label: '🏪 加盟政策', query: '加盟条件' },
-              { label: '🎯 营销活动', query: '当前营销活动' },
-            ].map((chip) => (
-              <button
-                key={chip.label}
-                onClick={() => quickAsk(chip.query)}
-                style={{
-                  padding: '8px 16px', borderRadius: 20, border: '1px solid #e5e7eb',
-                  background: '#fff', cursor: 'pointer', fontSize: 13, color: '#6b7280',
-                }}
-              >
-                {chip.label}
-              </button>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20, justifyContent: 'center' }}>
+            {MODULES.slice(0, 5).map(m => (
+              <button key={m.key} onClick={() => send(`查${m.label.slice(2)}`)} style={{
+                padding: '6px 14px', borderRadius: 16, border: '1px solid #e8ddd2', background: '#fff',
+                cursor: 'pointer', fontSize: 12, color: '#6b7280',
+              }}>{m.label}</button>
             ))}
           </div>
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} style={{
-            marginBottom: 16,
-            display: 'flex',
-            gap: 10,
-            flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-          }}>
+          <div key={i} style={{ marginBottom: 14, display: 'flex', gap: 10, flexDirection: msg.role === 'user' ? 'row-reverse' : 'row' }}>
             <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: msg.role === 'user' ? '#b8895e' : '#f3e8dc',
+              width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+              background: msg.role === 'user' ? '#b8895e' : '#f5ede6',
               color: msg.role === 'user' ? '#fff' : '#4a3a2a',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
             }}>
               {msg.role === 'user' ? '我' : '🧋'}
             </div>
             <div style={{
-              maxWidth: 500, padding: '12px 16px', borderRadius: 16,
-              background: msg.role === 'user' ? '#f3e8dc' : '#fff',
-              border: msg.role === 'assistant' ? '1px solid #e5e7eb' : 'none',
-              fontSize: 14, lineHeight: 1.7,
+              maxWidth: 500, padding: '10px 16px', borderRadius: 16, fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap',
+              background: msg.role === 'user' ? '#f5ede6' : '#fff',
+              border: msg.role === 'assistant' ? '1px solid #e8ddd2' : 'none',
             }}>
               <div>{msg.content}</div>
-              {msg.references && msg.references.length > 0 && (
-                <div style={{ marginTop: 8, fontSize: 12, color: '#b8895e' }}>
-                  📄 来源：{msg.references.map(r => r.title).join('、')}
+              {msg.source === 'knowledge_base' && (
+                <div style={{ marginTop: 6, fontSize: 11, color: '#b8895e' }}>
+                  📄 知识库原文
                 </div>
               )}
-              {msg.images && msg.images.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  {msg.images.filter(Boolean).map((src, j) => (
-                    <img key={j} src={src} alt="" style={{ maxWidth: 200, borderRadius: 8, marginRight: 6 }} />
-                  ))}
+              {msg.references && msg.references.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 11, color: '#8a7a6a' }}>
+                  引用：{msg.references.map(r => r.title).join('、')}
                 </div>
               )}
             </div>
@@ -157,40 +134,23 @@ function App() {
         ))}
 
         {loading && (
-          <div style={{ color: '#9ca3af', fontSize: 13, padding: '8px 16px' }}>
-            🧋 正在查询知识库...
-          </div>
+          <div style={{ color: '#8a7a6a', fontSize: 12, padding: '8px 16px' }}>🧋 查询中...</div>
         )}
       </div>
 
       {/* Input */}
-      <div style={{ padding: '16px 24px 24px', borderTop: '1px solid #e5e7eb' }}>
-        <div style={{
-          display: 'flex', gap: 8,
-          border: '1px solid #e5e7eb', borderRadius: 16,
-          background: '#fafaf7', padding: '8px 16px',
-        }}>
+      <div style={{ padding: '12px 20px 20px', borderTop: '1px solid #e8ddd2', background: '#fff' }}>
+        <div style={{ display: 'flex', gap: 8, border: '1px solid #e8ddd2', borderRadius: 14, background: '#faf7f2', padding: '6px 14px' }}>
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
-            placeholder="输入问题..."
-            style={{
-              flex: 1, border: 'none', outline: 'none',
-              background: 'transparent', fontSize: 14,
-            }}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && send()}
+            placeholder={lang === 'zh' ? '输入问题...' : 'Введите вопрос...'}
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14 }}
           />
-          <button
-            onClick={send}
-            disabled={loading}
-            style={{
-              width: 36, height: 36, borderRadius: 10,
-              border: 'none', background: '#b8895e', color: '#fff',
-              cursor: 'pointer', fontSize: 18,
-            }}
-          >
-            ➤
-          </button>
+          <button onClick={() => send()} disabled={loading} style={{
+            width: 32, height: 32, borderRadius: 8, border: 'none', background: '#b8895e', color: '#fff', cursor: 'pointer', fontSize: 16,
+          }}>➤</button>
         </div>
       </div>
     </div>
