@@ -121,12 +121,31 @@ async def upload_document(
     if not entries:
         raise HTTPException(400, "文档中未找到可导入的内容")
 
+    # AI 自动分类
+    from app.services.rag_service import call_llm
+
+    async def auto_classify(title: str, cont: str) -> str:
+        try:
+            prompt = (
+                "判断以下内容的模块，只回复一个英文词：\n"
+                "product/sop/training/store/marketing/brand/franchise/operations/equipment/maintenance\n\n"
+                f"标题：{title}\n内容：{cont[:200]}\n\n模块："
+            )
+            r = (await call_llm([{"role": "user", "content": prompt}])).strip().lower()
+            valid = ["product","sop","training","store","marketing","brand","franchise","operations","equipment","maintenance"]
+            if r in valid:
+                return r
+        except:
+            pass
+        return "product"
+
     # 写入数据库
     created = []
     for entry in entries:
         zh, ru = split_bilingual(entry["content_zh"])
+        entry_module = module if module != "auto" else await auto_classify(entry["title_zh"], zh or entry["content_zh"])
         knowledge = KnowledgeEntry(
-            module=module,
+            module=entry_module,
             title_zh=entry["title_zh"],
             title_ru="",
             content_zh=zh or entry["content_zh"],
@@ -139,7 +158,7 @@ async def upload_document(
 
     return {
         "message": f"成功导入 {len(created)} 条知识",
-        "module": module,
+        "module": entry_module,
         "items": created,
     }
 
