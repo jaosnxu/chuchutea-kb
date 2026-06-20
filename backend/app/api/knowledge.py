@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
-from app.models.knowledge import KnowledgeEntry, KnowledgeModule
+from app.models.knowledge import KnowledgeEntry, AVAILABLE_MODULES
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
@@ -37,7 +37,7 @@ async def list_knowledge(
     """获取知识列表"""
     stmt = KnowledgeEntry.__table__.select()
     if module:
-        stmt = stmt.where(KnowledgeEntry.module == KnowledgeModule(module))
+        stmt = stmt.where(KnowledgeEntry.module == module)
     stmt = stmt.order_by(KnowledgeEntry.updated_at.desc())
     stmt = stmt.offset((page - 1) * size).limit(size)
 
@@ -64,7 +64,7 @@ async def list_knowledge(
 async def create_knowledge(req: KnowledgeCreate, db: AsyncSession = Depends(get_db)):
     """新增知识条目"""
     entry = KnowledgeEntry(
-        module=KnowledgeModule(req.module),
+        module=req.module,
         title_zh=req.title_zh,
         title_ru=req.title_ru,
         content_zh=req.content_zh,

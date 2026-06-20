@@ -3,7 +3,7 @@ import httpx
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
-from app.models.knowledge import KnowledgeEntry, KnowledgeModule
+from app.models.knowledge import KnowledgeEntry
 
 
 async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Optional[str] = None) -> list[dict]:
@@ -38,20 +38,27 @@ async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Opti
     )
 
     if module:
-        stmt = stmt.where(KnowledgeEntry.module == KnowledgeModule(module))
+        stmt = stmt.where(KnowledgeEntry.module == module)
 
     stmt = stmt.limit(5)
     result = await db.execute(stmt)
-    entries = result.scalars().all()
+    entries_raw = result.scalars().all()
+    # 按 id 去重
+    seen = set()
+    entries = []
+    for e in entries_raw:
+        if e.id not in seen:
+            seen.add(e.id)
+            entries.append(e)
 
     return [
         {
             "id": e.id,
-            "module": e.module.value,
+            "module": e.module,
             "title": e.title_zh if lang == "zh" else (e.title_ru or e.title_zh),
             "content": e.content_zh if lang == "zh" else (e.content_ru or e.content_zh),
             "image_url": e.image_url,
-            "source": f"{e.module.value} - {e.title_zh} v{e.version}",
+            "source": f"{e.module} - {e.title_zh} v{e.version}",
         }
         for e in entries
     ]
