@@ -4,10 +4,14 @@
 import asyncio
 import httpx
 import json
+import os
 
-API_KEY = "ark-ca60ffc8-378d-4cb9-a5a7-35345998efbb-5afc9"
+API_KEY = os.getenv("DOUBAO_API_KEY", "")
 BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 MODEL = "doubao-seed-1-6-251015"
+
+if not API_KEY:
+    raise RuntimeError("Set DOUBAO_API_KEY before running this smoke test.")
 
 
 async def test_chat():

@@ -19,6 +19,8 @@ services:
   api:
     build: ./backend
     container_name: chuchutea-api
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
     depends_on:
@@ -26,9 +28,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://chuchutea:chuchutea@db:5432/chuchutea
-      LLM_PROVIDER: doubao
-      DOUBAO_API_KEY: ark-ca60ffc8-378d-4cb9-a5a7-35345998efbb-5afc9
-      DOUBAO_CHAT_MODEL: doubao-seed-1-6-251015
+      TEXT_MODEL: doubao
+      DOUBAO_VISION_MODEL: doubao-seed-1-6-251015
       DOUBAO_EMBEDDING_MODEL: doubao-embedding-vision-251215
       DEBUG: "false"
 

@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://revise-overlying-tigress.ngrok-free.dev/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://teammind-ecru.vercel.app/_/backend/api/$1" }
   ]
 }

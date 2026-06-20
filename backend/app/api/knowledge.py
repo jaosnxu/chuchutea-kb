@@ -47,7 +47,7 @@ async def list_knowledge(
         "items": [
             {
                 "id": row.id,
-                "module": row.module.value,
+                "module": row.module,
                 "title": row.title_zh if lang == "zh" else (row.title_ru or row.title_zh),
                 "content": row.content_zh if lang == "zh" else (row.content_ru or row.content_zh),
                 "image_url": row.image_url,

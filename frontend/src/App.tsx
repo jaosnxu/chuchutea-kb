@@ -64,6 +64,7 @@ const App: React.FC = () => {
   const active = convs.find(c => c.id === activeId)
   const messages = active?.messages || []
   const currentLang = active?.lang || 'zh'
+  const visibleModules = allowedModules.length > 0 ? MODULES.filter(m => allowedModules.includes(m.key)) : MODULES
 
   useEffect(() => {
     fetch('/api/conversations/list', { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()).then((list: any[]) => {
@@ -73,6 +74,15 @@ const App: React.FC = () => {
         fetch(`/api/conversations/${list[0].id}`).then(r => r.json()).then(d => {
           setConvs(prev => prev.map(c => c.id === d.id ? { ...c, messages: d.messages, lang: d.lang || 'zh' } : c))
         })
+      } else {
+        fetch('/api/conversations/save', {
+          method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '新对话', lang: 'zh', messages: [], pinned: false }),
+        }).then(r => r.json()).then(d => {
+          const c: Conversation = { id: d.id, title: '新对话', lang: 'zh', messages: [], pinned: false }
+          setConvs([c])
+          setActiveId(c.id)
+        }).catch(() => {})
       }
     }).catch(() => {})
   }, [])
@@ -99,16 +109,43 @@ const App: React.FC = () => {
     } catch { /* fallback */ }
   }
 
+  const createEmptyConversation = async (lang: 'zh' | 'ru') => {
+    const r = await fetch('/api/conversations/save', {
+      method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: '新对话', lang, messages: [], pinned: false }),
+    })
+    const d = await r.json()
+    const c: Conversation = { id: d.id, title: '新对话', lang, messages: [], pinned: false }
+    setConvs([c])
+    setActiveId(c.id)
+  }
+
   const renameConv = async (id: string, title: string) => {
-    await fetch(`/api/conversations/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'PUT', body: JSON.stringify({ title }) })
-    setConvs(prev => prev.map(c => c.id === id ? { ...c, title } : c))
+    const nextTitle = window.prompt('输入新标题', title)?.trim()
+    if (!nextTitle || nextTitle === title) return
+    await fetch(`/api/conversations/${id}`, {
+      headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+      method: 'PUT',
+      body: JSON.stringify({ title: nextTitle })
+    })
+    setConvs(prev => prev.map(c => c.id === id ? { ...c, title: nextTitle } : c))
   }
   const deleteConv = async (id: string) => {
     await fetch(`/api/conversations/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'DELETE' })
-    setConvs(prev => { const f = prev.filter(c => c.id !== id); if (activeId === id) setActiveId(f[0]?.id || ''); return f })
+    const remaining = convs.filter(c => c.id !== id)
+    if (remaining.length === 0) {
+      await createEmptyConversation(currentLang)
+      return
+    }
+    setConvs(remaining)
+    if (activeId === id) setActiveId(remaining[0].id)
   }
   const togglePin = async (id: string, p: boolean) => {
-    await fetch(`/api/conversations/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'PUT', body: JSON.stringify({ pinned: p }) })
+    await fetch(`/api/conversations/${id}`, {
+      headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+      method: 'PUT',
+      body: JSON.stringify({ pinned: p })
+    })
     setConvs(prev => prev.map(c => c.id === id ? { ...c, pinned: p } : c))
   }
 
@@ -206,8 +243,10 @@ const App: React.FC = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('username')
     localStorage.removeItem('role')
+    localStorage.removeItem('allowed_modules')
     setToken('')
     setCurrentUser({ username: '', role: '' })
+    setAllowedModules([])
   }
 
   // 未登录 → 显示登录页
@@ -277,7 +316,7 @@ const App: React.FC = () => {
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 10, color: '#999', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>知识模块</div>
               <div style={{ fontSize: 11, color: '#888', lineHeight: 2 }}>
-                {MODULES.map(m => <span key={m.key} style={{ marginRight: 6 }}>{tl(m.label, currentLang)}</span>)}
+                {visibleModules.map(m => <span key={m.key} style={{ marginRight: 6 }}>{tl(m.label, currentLang)}</span>)}
               </div>
             </div>
 
@@ -285,7 +324,7 @@ const App: React.FC = () => {
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 10, color: '#999', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>用户</div>
               <div style={{ fontSize: 13, color: '#333', fontWeight: 600 }}>{currentUser.username || '未登录'}</div>
-              <div style={{ fontSize: 11, color: '#999', margin: '4px 0 8px' }}>{currentUser.role === 'super_admin' ? '超级管理员' : currentUser.role === 'editor' ? '内容管理员' : '普通员工'}</div>
+              <div style={{ fontSize: 11, color: '#999', margin: '4px 0 8px' }}>{currentUser.role === 'super_admin' ? '超级管理员' : currentUser.role === 'admin' ? '管理员' : currentUser.role === 'editor' ? '内容管理员' : '普通员工'}</div>
               <button onClick={handleLogout} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#d44' }}>🚪 {tl('登出', currentLang)}</button>
             </div>
 
@@ -350,7 +389,7 @@ const App: React.FC = () => {
                 <h2 style={{ fontSize: 22, fontWeight: 400, color: '#333', marginBottom: 8 }}>{tl("有什么可以帮助你的？", currentLang)}</h2>
                 <p style={{ fontSize: 13, color: '#999', margin: 0 }}>{tl("大诺夫哥罗德 · 普斯科夫 · 特维尔", currentLang)}</p>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
-                  {MODULES.map(m => (
+                  {visibleModules.map(m => (
                     <button key={m.key} onClick={() => send(`查${tl(m.label, currentLang)}`)} style={{ padding: '8px 14px', borderRadius: 16, border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#666' }}>{tl(m.label, currentLang)}</button>
                   ))}
                 </div>
