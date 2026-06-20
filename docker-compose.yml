@@ -1,20 +1,36 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: teammind-db
+    container_name: chuchutea-db
     environment:
-      POSTGRES_USER: teammind
-      POSTGRES_PASSWORD: teammind
-      POSTGRES_DB: teammind
+      POSTGRES_USER: chuchutea
+      POSTGRES_PASSWORD: chuchutea
+      POSTGRES_DB: chuchutea
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U teammind"]
+      test: ["CMD-SHELL", "pg_isready -U chuchutea"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  api:
+    build: ./backend
+    container_name: chuchutea-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://chuchutea:chuchutea@db:5432/chuchutea
+      LLM_PROVIDER: doubao
+      DOUBAO_API_KEY: ark-ca60ffc8-378d-4cb9-a5a7-35345998efbb-5afc9
+      DOUBAO_CHAT_MODEL: doubao-seed-1-6-251015
+      DOUBAO_EMBEDDING_MODEL: doubao-embedding-vision-251215
+      DEBUG: "false"
 
 volumes:
   pgdata:
