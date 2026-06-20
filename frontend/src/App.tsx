@@ -59,7 +59,7 @@ const App: React.FC = () => {
   const currentLang = active?.lang || 'zh'
 
   useEffect(() => {
-    fetch('/api/conversations/list').then(r => r.json()).then((list: any[]) => {
+    fetch('/api/conversations/list', { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()).then((list: any[]) => {
       if (list.length > 0) {
         setConvs(list.map(c => ({ ...c, messages: [] })))
         setActiveId(list[0].id)
@@ -81,7 +81,7 @@ const App: React.FC = () => {
 
   const newChat = async () => {
     try {
-      const r = await fetch('/api/conversations/save', {
+      const r = await fetch('/api/conversations/save', { headers: { 'ngrok-skip-browser-warning': 'true' } }, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: '新对话', lang: currentLang, messages: [] }),
       })
@@ -120,7 +120,7 @@ const App: React.FC = () => {
     setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: msgs } : c))
     setLoading(true)
     try {
-      const res = await fetch('/api/chat/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, lang }) })
+      const res = await fetch('/api/chat/ask', { headers: { 'ngrok-skip-browser-warning': 'true' } }, { method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, lang }) })
       const d = await res.json()
       const updated = [...msgs, { role: 'assistant' as const, content: d.answer, references: d.references, source: d.source }]
       setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: updated, title: msgs[0]?.content?.slice(0, 30) || '新对话' } : c))
