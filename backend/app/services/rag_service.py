@@ -1,3 +1,4 @@
+from typing import Optional
 import httpx
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,24 +6,35 @@ from app.core.config import settings
 from app.models.knowledge import KnowledgeEntry, KnowledgeModule
 
 
-async def search_knowledge(db: AsyncSession, query: str, lang: str, module: str | None = None) -> list[dict]:
+async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Optional[str] = None) -> list[dict]:
     """
-    知识优先检索：先用 SQL 关键词搜索知识库，
-    返回匹配的条目列表。
+    知识优先检索：用 SQL 关键词搜索知识库。
+    把查询拆成词，搜索 title 和 content 中包含任一关键词的条目。
     """
-    lang_col = "title_zh" if lang == "zh" else "title_ru"
-    content_col = "content_zh" if lang == "zh" else "content_ru"
+    from sqlalchemy import or_, and_
 
-    # 关键词搜索
+    # 拆分查询为关键词（简单按空格和常见标点分）
+    keywords = []
+    if any('一' <= c <= '鿿' for c in query):
+        chinese_chars = ''.join(c for c in query if '一' <= c <= '鿿' or c.isalpha())
+        keywords = [chinese_chars[i:i+2] for i in range(len(chinese_chars)-1)]
+    else:
+        keywords = [k.strip() for k in query.split() if len(k.strip()) >= 2]
+
+    if not keywords:
+        keywords = [query]
+
     conditions = []
-    conditions.append(text(f"{lang_col} ILIKE :q1").bindparams(q1=f"%{query}%"))
-    conditions.append(text(f"{content_col} ILIKE :q2").bindparams(q2=f"%{query}%"))
+    title_col = KnowledgeEntry.title_zh if lang == "zh" else KnowledgeEntry.title_ru
+    content_col = KnowledgeEntry.content_zh if lang == "zh" else KnowledgeEntry.content_ru
 
-    conditions_sql = " OR ".join([str(c) for c in conditions])
+    for kw in keywords:
+        conditions.append(title_col.ilike(f"%{kw}%"))
+        conditions.append(content_col.ilike(f"%{kw}%"))
 
     stmt = select(KnowledgeEntry).where(
         KnowledgeEntry.is_published == True,
-        text(f"({conditions_sql})")
+        or_(*conditions)
     )
 
     if module:
@@ -101,7 +113,7 @@ async def create_embedding(text: str) -> list[float]:
 
 
 async def answer_question(
-    db: AsyncSession, query: str, lang: str, module: str | None = None, history: list[dict] | None = None
+    db: AsyncSession, query: str, lang: str, module: Optional[str] = None, history: Optional[list] = None
 ) -> dict:
     """
     RAG 问答主流程：

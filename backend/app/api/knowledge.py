@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.models.knowledge import KnowledgeEntry, KnowledgeModule
@@ -17,17 +18,17 @@ class KnowledgeCreate(BaseModel):
 
 
 class KnowledgeUpdate(BaseModel):
-    title_zh: str | None = None
-    title_ru: str | None = None
-    content_zh: str | None = None
-    content_ru: str | None = None
-    image_url: str | None = None
-    is_published: bool | None = None
+    title_zh: Optional[str] = None
+    title_ru: Optional[str] = None
+    content_zh: Optional[str] = None
+    content_ru: Optional[str] = None
+    image_url: Optional[str] = None
+    is_published: Optional[bool] = None
 
 
 @router.get("/list")
 async def list_knowledge(
-    module: str | None = None,
+    module: Optional[str] = None,
     lang: str = "zh",
     page: int = 1,
     size: int = 20,

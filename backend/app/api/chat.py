@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 from pydantic import BaseModel
 from app.core.database import get_db
 from app.services.rag_service import answer_question
@@ -10,8 +11,8 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 class ChatRequest(BaseModel):
     query: str
     lang: str = "zh"  # zh | ru
-    module: str | None = None  # product | sop | training | store | marketing
-    history: list[dict] | None = []  # 多轮对话上下文
+    module: Optional[str] = None  # product | sop | training | store | marketing
+    history: Optional[list] = []  # 多轮对话上下文
 
 
 @router.post("/ask")
