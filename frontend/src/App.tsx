@@ -130,7 +130,10 @@ const App: React.FC = () => {
     const q = (text || input).trim()
     if (!q || loading || !active) return
     setInput('')
-    const lang = currentLang
+    // Auto-detect language from user input
+    const hasCyrillic = /[Ѐ-ӿ]/.test(q)
+    const hasChinese = /[一-鿿]/.test(q)
+    const lang: 'zh' | 'ru' = hasCyrillic ? 'ru' : 'zh'
     const history = messages.slice(-6)
     const msgs: Message[] = [...messages, { role: 'user', content: q }]
     setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: msgs } : c))
@@ -348,7 +351,7 @@ const App: React.FC = () => {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            placeholder={currentLang === 'zh' ? '输入你的问题...' : 'Введите ваш вопрос...'}
+            placeholder={'输入你的问题...  /  Введите ваш вопрос...'}
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: '#1a1a1a' }}
           />
           <button onClick={() => send()} disabled={loading || !input.trim()} style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: input.trim() ? '#1a1a1a' : '#e5e5e5', color: '#fff', cursor: input.trim() ? 'pointer' : 'default', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↑</button>
