@@ -196,9 +196,10 @@ const App: React.FC = () => {
   const isEmpty = messages.length === 0
 
   // 登录处理
-  const handleLogin = (t: string, username: string, role: string) => {
+  const handleLogin = (t: string, username: string, role: string, allowedModules?: string[]) => {
     setToken(t)
     setCurrentUser({ username, role })
+    if (allowedModules) setAllowedModules(allowedModules)
   }
 
   const handleLogout = () => {
@@ -278,6 +279,14 @@ const App: React.FC = () => {
               <div style={{ fontSize: 11, color: '#888', lineHeight: 2 }}>
                 {MODULES.map(m => <span key={m.key} style={{ marginRight: 6 }}>{tl(m.label, currentLang)}</span>)}
               </div>
+            </div>
+
+            {/* 用户 */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 10, color: '#999', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>用户</div>
+              <div style={{ fontSize: 13, color: '#333', fontWeight: 600 }}>{currentUser.username || '未登录'}</div>
+              <div style={{ fontSize: 11, color: '#999', margin: '4px 0 8px' }}>{currentUser.role === 'super_admin' ? '超级管理员' : currentUser.role === 'editor' ? '内容管理员' : '普通员工'}</div>
+              <button onClick={handleLogout} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#d44' }}>🚪 {tl('登出', currentLang)}</button>
             </div>
 
             <div style={{ marginTop: 'auto', fontSize: 10, color: '#ccc', textAlign: 'center', padding: '12px 0' }}>

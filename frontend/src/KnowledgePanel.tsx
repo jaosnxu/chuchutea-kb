@@ -18,7 +18,7 @@ const KnowledgePanel: React.FC<Props> = ({ onClose }) => {
     form.append('file', file)
     form.append('module', 'auto')
     try {
-      const r = await fetch('https://revise-overlying-tigress.ngrok-free.dev/api/import/upload', { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'POST', body: form })
+      const r = await fetch('/api/import/upload', { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'POST', body: form })
       const d = await r.json()
       setMsg(`✅ ${d.message} · 模块：${d.module}`)
       if (fileRef.current) fileRef.current.value = ''
