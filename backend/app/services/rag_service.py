@@ -7,7 +7,13 @@ from app.core.config import settings
 from app.models.knowledge import KnowledgeEntry
 
 
-async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Optional[str] = None) -> list[dict]:
+async def search_knowledge(
+    db: AsyncSession,
+    query: str,
+    lang: str,
+    module: Optional[str] = None,
+    allowed_modules: Optional[list[str]] = None,
+) -> list[dict]:
     """
     知识优先检索：用 SQL 关键词搜索知识库。
     把查询拆成词，搜索 title 和 content 中包含任一关键词的条目。
@@ -44,8 +50,10 @@ async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Opti
 
     if module:
         stmt = stmt.where(KnowledgeEntry.module == module)
+    elif allowed_modules:
+        stmt = stmt.where(KnowledgeEntry.module.in_(allowed_modules))
 
-    stmt = stmt.limit(5)
+    stmt = stmt.limit(50)
     result = await db.execute(stmt)
     entries_raw = result.scalars().all()
     # 按 id 去重
@@ -55,6 +63,30 @@ async def search_knowledge(db: AsyncSession, query: str, lang: str, module: Opti
         if e.id not in seen:
             seen.add(e.id)
             entries.append(e)
+
+    query_lower = query.lower()
+
+    def score(entry: KnowledgeEntry) -> int:
+        title = entry.title_zh if lang == "zh" else (entry.title_ru or entry.title_zh)
+        content = entry.content_zh if lang == "zh" else (entry.content_ru or entry.content_zh)
+        title_lower = title.lower()
+        content_lower = content.lower()
+        keywords_lower = (entry.keywords or "").lower()
+        value = 0
+        if query_lower in title_lower:
+            value += 80
+        if query_lower in content_lower:
+            value += 60
+        for kw in keywords:
+            if kw in title_lower:
+                value += 20
+            if kw in keywords_lower:
+                value += 12
+            if kw in content_lower:
+                value += 5
+        return value
+
+    entries = sorted(entries, key=score, reverse=True)[:5]
 
     return [
         {
@@ -169,11 +201,16 @@ async def call_llm_stream(messages: list[dict], system_prompt: str = ""):
                         content = delta.get("content", "")
                         if content:
                             yield content
-                    except:
+                    except json.JSONDecodeError:
                         pass
 
 async def answer_question(
-    db: AsyncSession, query: str, lang: str, module: Optional[str] = None, history: Optional[list] = None
+    db: AsyncSession,
+    query: str,
+    lang: str,
+    module: Optional[str] = None,
+    history: Optional[list] = None,
+    allowed_modules: Optional[list[str]] = None,
 ) -> dict:
     """
     RAG 问答主流程：
@@ -181,7 +218,7 @@ async def answer_question(
     2. 如果有匹配 → 用知识库内容 + LLM 生成回答
     3. 如果没有匹配 → 用 LLM 自由回答
     """
-    knowledge_results = await search_knowledge(db, query, lang, module)
+    knowledge_results = await search_knowledge(db, query, lang, module, allowed_modules)
 
     if knowledge_results:
         # 知识库有匹配 → 直接返回原文

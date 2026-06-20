@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+from app.api.auth_routes import get_current_user
 from app.core.database import get_db
 from app.models.conversation import Conversation
 
@@ -22,7 +23,7 @@ class UpdateRequest(BaseModel):
 
 
 @router.get("/list")
-async def list_convs(db: AsyncSession = Depends(get_db)):
+async def list_convs(db: AsyncSession = Depends(get_db), _user: dict = Depends(get_current_user)):
     result = await db.execute(
         select(Conversation).order_by(Conversation.pinned.desc(), Conversation.updated_at.desc()).limit(50)
     )
@@ -34,7 +35,7 @@ async def list_convs(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/save")
-async def save_conv(req: SaveRequest, db: AsyncSession = Depends(get_db)):
+async def save_conv(req: SaveRequest, db: AsyncSession = Depends(get_db), _user: dict = Depends(get_current_user)):
     conv = Conversation(title=req.title, lang=req.lang, messages=req.messages, pinned=req.pinned)
     db.add(conv)
     await db.commit()
@@ -42,7 +43,7 @@ async def save_conv(req: SaveRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{conv_id}")
-async def update_conv(conv_id: str, req: UpdateRequest, db: AsyncSession = Depends(get_db)):
+async def update_conv(conv_id: str, req: UpdateRequest, db: AsyncSession = Depends(get_db), _user: dict = Depends(get_current_user)):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
     conv = result.scalar_one_or_none()
     if not conv:
@@ -58,7 +59,7 @@ async def update_conv(conv_id: str, req: UpdateRequest, db: AsyncSession = Depen
 
 
 @router.put("/{conv_id}/full")
-async def update_conv_full(conv_id: str, req: SaveRequest, db: AsyncSession = Depends(get_db)):
+async def update_conv_full(conv_id: str, req: SaveRequest, db: AsyncSession = Depends(get_db), _user: dict = Depends(get_current_user)):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
     conv = result.scalar_one_or_none()
     if not conv:
@@ -74,7 +75,7 @@ async def update_conv_full(conv_id: str, req: SaveRequest, db: AsyncSession = De
 
 
 @router.get("/{conv_id}")
-async def get_conv(conv_id: str, db: AsyncSession = Depends(get_db)):
+async def get_conv(conv_id: str, db: AsyncSession = Depends(get_db), _user: dict = Depends(get_current_user)):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
     conv = result.scalar_one_or_none()
     if not conv:
@@ -83,7 +84,7 @@ async def get_conv(conv_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{conv_id}")
-async def delete_conv(conv_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_conv(conv_id: str, db: AsyncSession = Depends(get_db), _user: dict = Depends(get_current_user)):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
     conv = result.scalar_one_or_none()
     if not conv:

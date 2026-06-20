@@ -10,7 +10,7 @@ from app.models.user import create_default_admin
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    create_default_admin(None)
+    await create_default_admin()
     yield
 
 
@@ -22,7 +22,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

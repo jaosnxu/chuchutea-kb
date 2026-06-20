@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from pydantic import BaseModel
 import json, time
+from app.api.auth_routes import get_current_user
 from app.core.database import get_db
+from app.models.knowledge import AVAILABLE_MODULES
 from app.services.rag_service import answer_question, search_knowledge, call_llm_stream, call_llm
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -19,24 +21,30 @@ class ChatRequest(BaseModel):
     history: Optional[list] = []
 
 @router.post("/ask")
-async def ask(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def ask(req: ChatRequest, db: AsyncSession = Depends(get_db), user: dict = Depends(get_current_user)):
     if not req.query.strip():
         raise HTTPException(400, "查询内容不能为空")
-    cache_key = f"{req.query}:{req.lang}"
+    allowed_modules = user.get("allowed_modules") or AVAILABLE_MODULES
+    if req.module and req.module not in allowed_modules:
+        raise HTTPException(403, "无权访问该模块")
+    cache_key = f"{req.query}:{req.lang}:{req.module or ','.join(allowed_modules)}"
     if cache_key in _cache:
         ts, result = _cache[cache_key]
         if time.time() - ts < CACHE_TTL:
             return result
-    result = await answer_question(db, req.query, req.lang, req.module, req.history)
+    result = await answer_question(db, req.query, req.lang, req.module, req.history, allowed_modules)
     _cache[cache_key] = (time.time(), result)
     return result
 
 @router.post("/ask/stream")
-async def ask_stream(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def ask_stream(req: ChatRequest, db: AsyncSession = Depends(get_db), user: dict = Depends(get_current_user)):
     if not req.query.strip():
         raise HTTPException(400, "查询内容不能为空")
+    allowed_modules = user.get("allowed_modules") or AVAILABLE_MODULES
+    if req.module and req.module not in allowed_modules:
+        raise HTTPException(403, "无权访问该模块")
 
-    knowledge_results = await search_knowledge(db, req.query, req.lang, req.module)
+    knowledge_results = await search_knowledge(db, req.query, req.lang, req.module, allowed_modules)
 
     # 上下文压缩：最多10条消息
     history = req.history[-10:] if req.history else []

@@ -39,27 +39,24 @@ class User(Base):
         return h == password_hash
 
 
-def create_default_admin(db_session):
+async def create_default_admin():
     """创建默认管理员账号"""
     from app.core.database import async_session
-    import asyncio
+    from app.core.config import settings
+    from sqlalchemy import select
 
-    async def _create():
-        async with async_session() as db:
-            from sqlalchemy import select
-            result = await db.execute(select(User).where(User.username == "admin"))
-            if not result.scalar_one_or_none():
-                pw_hash, salt = User.hash_password("admin123")
-                admin = User(username="admin", password_hash=pw_hash, salt=salt, role="admin", allowed_modules=ROLE_MODULES["admin"])
-                db.add(admin)
-                await db.commit()
-                print("默认管理员已创建: admin / admin123")
+    if not settings.allow_default_admin:
+        return
+    if not settings.default_admin_password or settings.default_admin_password == "admin123":
+        print("跳过默认管理员创建：DEFAULT_ADMIN_PASSWORD 未配置或仍为默认弱密码")
+        return
 
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(_create())
-        else:
-            loop.run_until_complete(_create())
-    except:
-        pass
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.username == "admin"))
+        if result.scalar_one_or_none():
+            return
+        pw_hash, salt = User.hash_password(settings.default_admin_password)
+        admin = User(username="admin", password_hash=pw_hash, salt=salt, role="admin", allowed_modules=ROLE_MODULES["admin"])
+        db.add(admin)
+        await db.commit()
+        print("默认管理员已创建: admin")

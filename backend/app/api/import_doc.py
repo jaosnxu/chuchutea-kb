@@ -1,10 +1,12 @@
 import io
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+import httpx
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.auth_routes import require_role
 from app.core.database import get_db
-from app.models.knowledge import KnowledgeEntry
+from app.models.knowledge import AVAILABLE_MODULES, KnowledgeEntry
 
 router = APIRouter(prefix="/api/import", tags=["import"])
 
@@ -102,10 +104,13 @@ async def upload_document(
     file: UploadFile = File(...),
     module: str = Form("product"),
     db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_role("editor", "admin")),
 ):
     """上传 Word 或 PDF，自动解析入库"""
     if file.content_type is None:
         raise HTTPException(400, "无法识别文件类型")
+    if module != "auto" and module not in AVAILABLE_MODULES:
+        raise HTTPException(400, "无效模块")
 
     content = await file.read()
     filename = file.filename or ""
@@ -135,7 +140,7 @@ async def upload_document(
             valid = ["product","sop","training","store","marketing","brand","franchise","operations","equipment","maintenance"]
             if r in valid:
                 return r
-        except:
+        except (KeyError, IndexError, ValueError, httpx.HTTPError):
             pass
         return "product"
 
@@ -152,7 +157,8 @@ async def upload_document(
             content_ru=ru,
         )
         db.add(knowledge)
-        created.append({"title": entry["title_zh"], "chars_zh": len(zh), "chars_ru": len(ru)})
+        await db.flush()
+        created.append({"id": knowledge.id, "title": entry["title_zh"], "chars_zh": len(zh), "chars_ru": len(ru)})
 
     await db.commit()
 
@@ -170,7 +176,11 @@ class PasteRequest(BaseModel):
 
 
 @router.post("/paste")
-async def paste_text(req: PasteRequest, db: AsyncSession = Depends(get_db)):
+async def paste_text(
+    req: PasteRequest,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(require_role("editor", "admin")),
+):
     """粘贴文本，AI 自动分类模块"""
     from app.services.rag_service import call_llm
 
@@ -185,7 +195,7 @@ async def paste_text(req: PasteRequest, db: AsyncSession = Depends(get_db)):
         module = (await call_llm([{"role": "user", "content": prompt}])).strip().lower()
         if module not in ["product", "sop", "training", "store", "marketing", "brand", "franchise", "operations", "equipment", "maintenance"]:
             module = "product"
-    except:
+    except (KeyError, IndexError, ValueError, httpx.HTTPError):
         module = "product"
 
     zh, ru = split_bilingual(req.content_zh)
@@ -195,7 +205,7 @@ async def paste_text(req: PasteRequest, db: AsyncSession = Depends(get_db)):
         kw = (await call_llm([{"role": "user", "content": kp}])).strip()
         sp = f"用一句话总结以下内容：\n{req.content_zh[:300]}\n\n摘要："
         summ = (await call_llm([{"role": "user", "content": sp}])).strip()
-    except:
+    except (KeyError, IndexError, ValueError, httpx.HTTPError):
         kw = ""; summ = ""
     knowledge = KnowledgeEntry(
         module=module,

@@ -21,13 +21,10 @@ cd ../frontend
 npx vite --port 3000 --host &
 sleep 2
 
-# 4. 启动 ngrok
-echo "🌐 启动外网..."
-ngrok http 8000 --log=stdout &
-
 echo ""
 echo "================================="
 echo "✅ 全部启动完成"
 echo "本地访问: http://localhost:3000"
 echo "后端API:  http://localhost:8000"
+echo "生产部署使用 Vercel + Neon；本地脚本不再默认启动公网隧道"
 echo "================================="

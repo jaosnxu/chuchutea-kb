@@ -3,7 +3,7 @@ import datetime
 from typing import Optional
 from app.core.config import settings
 
-SECRET_KEY = settings.database_url.replace("postgresql+asyncpg://", "")[:32] or "chuchutea-secret-2025"
+SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
 
 

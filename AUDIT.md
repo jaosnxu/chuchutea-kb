@@ -1,12 +1,14 @@
 # CHUCHUTEA AI 知识库 - 系统审计报告
 
+> 历史审计快照：本文记录早期内测架构和问题。当前生产部署以 Vercel + Neon 为准，请以 README.md 和 deploy/README.md 为准。
+
 ## 架构概览
 ```
-用户浏览器 → Vercel(前端) → ngrok → 后端FastAPI → PostgreSQL + 豆包API
+用户浏览器 → Vercel(前端) → Vercel Backend / FastAPI → Neon PostgreSQL + LLM API
 ```
 - 前端：React+TS 单页，部署在Vercel
-- 后端：Python FastAPI，本地运行，通过ngrok暴露
-- 数据库：PostgreSQL+pgvector，Docker运行
+- 后端：Python FastAPI，生产部署在Vercel服务
+- 数据库：生产使用Neon PostgreSQL；本地开发可用Docker PostgreSQL+pgvector
 - 大模型：豆包 doubao-seed-1-6-251015
 
 ## 发现的6个问题

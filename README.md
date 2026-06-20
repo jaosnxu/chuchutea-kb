@@ -5,7 +5,7 @@
 - **后端**：Python + FastAPI
 - **数据库**：PostgreSQL + pgvector
 - **大模型**：豆包 / DeepSeek（国产模型）
-- **部署**：Docker + Nginx
+- **部署**：Vercel Services + Neon Free，本地可用 Docker Compose
 
 ## 目录结构
 ```
@@ -32,7 +32,8 @@ teammind/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── vite.config.ts
-└── docker-compose.yml        # PostgreSQL + pgvector
+├── docker-compose.yml        # 本地 PostgreSQL + pgvector
+└── DESIGN.md                 # 前端设计基线
 ```
 
 ## 快速启动
@@ -45,8 +46,8 @@ docker-compose up -d
 ### 2. 后端
 ```bash
 cd backend
-cp .env.example .env   # 填入 API Key
-pip install -r requirements.txt
+cp .env.example .env   # 填入 API Key、SECRET_KEY、CORS_ORIGINS
+python -m pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
@@ -68,3 +69,5 @@ npm run dev
 | `POST /api/knowledge/create` | 新增知识条目 |
 | `PUT /api/knowledge/:id` | 更新知识条目 |
 | `DELETE /api/knowledge/:id` | 删除知识条目 |
+
+除 `/api/auth/login` 外，业务接口都需要 `Authorization: Bearer <token>`。

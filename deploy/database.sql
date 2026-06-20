@@ -1,4 +1,3 @@
--- Supabase SQL Editor 执行
 create extension if not exists vector;
 
 create table if not exists knowledge_entries (
@@ -24,6 +23,7 @@ create table if not exists conversations (
   title text not null default '',
   lang text not null default 'zh',
   messages jsonb default '[]',
+  pinned bool default false,
   created_at timestamp default now(),
   updated_at timestamp default now()
 );
@@ -38,8 +38,3 @@ create table if not exists users (
   is_active bool default true,
   created_at timestamp default now()
 );
-
--- 默认管理员密码 admin123
-insert into users (id, username, password_hash, salt, role, allowed_modules)
-values ('admin-default', 'admin', 'aa3411f3fc094fed6e91e9a06cfdca6893ed9fa87a12e0c73170f507a65ce61a', '002883f0ea17d3933f0d55c9b9eb1c65', 'admin', '["product","sop","training","store","marketing","brand","franchise","operations","equipment","maintenance"]')
-on conflict (username) do nothing;

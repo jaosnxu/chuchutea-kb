@@ -1,1 +1,6 @@
 .vercel
+backend/.env
+*.env
+frontend/dist/
+__pycache__/
+.DS_Store

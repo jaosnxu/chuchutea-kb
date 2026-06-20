@@ -31,6 +31,9 @@ services:
       TEXT_MODEL: doubao
       DOUBAO_VISION_MODEL: doubao-seed-1-6-251015
       DOUBAO_EMBEDDING_MODEL: doubao-embedding-vision-251215
+      SECRET_KEY: teammind-local-docker-secret-change-me
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      ALLOW_DEFAULT_ADMIN: "false"
       DEBUG: "false"
 
 volumes:

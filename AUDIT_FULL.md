@@ -1,5 +1,7 @@
 # CHUCHUTEA 知识库 — 全系统审计报告
 
+> 历史审计快照：本文记录早期重构前的问题清单。当前代码已拆分组件、补齐鉴权和知识管理；部署现状请以 README.md 和 deploy/README.md 为准。
+
 ## 点1：UI架构 — 当前是硬编码
 
 **现状：**
@@ -88,7 +90,7 @@
 - 后端 API `/api/import/upload` 正常
 - 前端 KnowledgePanel 有 `<input type="file">`
 - ❌ 上传触发无限文件选择器弹窗（React 渲染 bug）
-- ❌ 上传后 fetch 被 ngrok 拦截
+- ❌ 早期上传后 fetch 被旧代理拦截；当前应走 `/api/import/upload`
 
 **需要改为：**
 - 使用 button + hidden input 模式（不用原生 onChange 触发）
