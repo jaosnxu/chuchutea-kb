@@ -1,0 +1,143 @@
+import io
+from typing import Optional
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
+from app.models.knowledge import KnowledgeEntry
+
+router = APIRouter(prefix="/api/import", tags=["import"])
+
+
+def parse_docx(file_bytes: bytes) -> list[dict[str, str]]:
+    """解析 Word 文档，按段落拆分为知识条目"""
+    from docx import Document
+    doc = Document(io.BytesIO(file_bytes))
+
+    entries = []
+    current_title = ""
+    current_content: list[str] = []
+
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+
+        # 粗体或标题样式 → 作为新条目标题
+        if para.style.name.startswith("Heading") or (para.runs and para.runs[0].bold):
+            if current_title and current_content:
+                entries.append({
+                    "title_zh": current_title,
+                    "content_zh": "\n".join(current_content),
+                })
+            current_title = text
+            current_content = []
+        else:
+            current_content.append(text)
+
+    # 最后一条
+    if current_title and current_content:
+        entries.append({"title_zh": current_title, "content_zh": "\n".join(current_content)})
+
+    # 如果没识别到标题，整篇作为一个条目
+    if not entries:
+        all_text = "\n".join(p.text.strip() for p in doc.paragraphs if p.text.strip())
+        if all_text:
+            entries.append({"title_zh": "导入文档", "content_zh": all_text})
+
+    return entries
+
+
+def parse_pdf(file_bytes: bytes) -> list[dict[str, str]]:
+    """解析 PDF，提取文本作为一个知识条目"""
+    import fitz
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    text_parts = []
+    for page in doc:
+        text_parts.append(page.get_text())
+    full_text = "\n".join(text_parts).strip()
+
+    if not full_text:
+        return []
+
+    # 尝试按空行分段落，第一段作为标题
+    paragraphs = [p.strip() for p in full_text.split("\n\n") if p.strip()]
+    if len(paragraphs) >= 2:
+        return [{"title_zh": paragraphs[0][:100], "content_zh": full_text}]
+    else:
+        return [{"title_zh": "导入文档", "content_zh": full_text}]
+
+
+def split_bilingual(content: str) -> tuple[str, str]:
+    """
+    尝试从内容中分离中俄双语。
+    如果内容包含明显的俄语字符段（西里尔字母），
+    则将内容按语言分成中/俄两部分。
+    """
+    has_cyrillic = any('\u0400' <= c <= '\u04FF' for c in content)
+
+    if not has_cyrillic:
+        return content, ""
+
+    # 简单策略：中文部分 + 俄语部分（俄语在后面）
+    lines = content.split("\n")
+    zh_lines = []
+    ru_lines = []
+    current_lang = "zh"
+
+    for line in lines:
+        cyrillic_count = sum(1 for c in line if '\u0400' <= c <= '\u04FF')
+        if cyrillic_count > len(line) * 0.3:
+            current_lang = "ru"
+        if current_lang == "ru":
+            ru_lines.append(line)
+        else:
+            zh_lines.append(line)
+
+    return "\n".join(zh_lines).strip(), "\n".join(ru_lines).strip()
+
+
+@router.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    module: str = Form("product"),
+    db: AsyncSession = Depends(get_db),
+):
+    """上传 Word 或 PDF，自动解析入库"""
+    if file.content_type is None:
+        raise HTTPException(400, "无法识别文件类型")
+
+    content = await file.read()
+    filename = file.filename or ""
+
+    # 解析
+    if filename.lower().endswith(".docx"):
+        entries = parse_docx(content)
+    elif filename.lower().endswith(".pdf"):
+        entries = parse_pdf(content)
+    else:
+        raise HTTPException(400, "仅支持 .docx 和 .pdf 格式")
+
+    if not entries:
+        raise HTTPException(400, "文档中未找到可导入的内容")
+
+    # 写入数据库
+    created = []
+    for entry in entries:
+        zh, ru = split_bilingual(entry["content_zh"])
+        knowledge = KnowledgeEntry(
+            module=module,
+            title_zh=entry["title_zh"],
+            title_ru="",
+            content_zh=zh or entry["content_zh"],
+            content_ru=ru,
+        )
+        db.add(knowledge)
+        created.append({"title": entry["title_zh"], "chars_zh": len(zh), "chars_ru": len(ru)})
+
+    await db.commit()
+
+    return {
+        "message": f"成功导入 {len(created)} 条知识",
+        "module": module,
+        "items": created,
+    }
