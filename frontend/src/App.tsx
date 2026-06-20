@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import AuthPage from './AuthPage'
 import KnowledgePanel from './KnowledgePanel'
+import { t as tl } from './i18n'
 
 const MAX_TITLE = 40  // ChatGPT style truncation
 
@@ -250,7 +251,7 @@ const App: React.FC = () => {
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 10, color: '#999', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>知识模块</div>
               <div style={{ fontSize: 11, color: '#888', lineHeight: 2 }}>
-                {MODULES.map(m => <span key={m.key} style={{ marginRight: 6 }}>{m.label}</span>)}
+                {MODULES.map(m => <span key={m.key} style={{ marginRight: 6 }}>{tl(m.label, currentLang)}</span>)}
               </div>
             </div>
 
@@ -315,11 +316,11 @@ const App: React.FC = () => {
           <div style={S.messagesWrap}>
             {isEmpty ? (
               <div style={S.welcome}>
-                <h2 style={{ fontSize: 22, fontWeight: 400, color: '#333', marginBottom: 8 }}>有什么可以帮助你的？</h2>
-                <p style={{ fontSize: 13, color: '#999', margin: 0 }}>{CITIES.join(' · ')}</p>
+                <h2 style={{ fontSize: 22, fontWeight: 400, color: '#333', marginBottom: 8 }}>{tl("有什么可以帮助你的？", currentLang)}</h2>
+                <p style={{ fontSize: 13, color: '#999', margin: 0 }}>{tl("大诺夫哥罗德 · 普斯科夫 · 特维尔", currentLang)}</p>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 20 }}>
                   {MODULES.map(m => (
-                    <button key={m.key} onClick={() => send(`查${m.label}`)} style={{ padding: '8px 14px', borderRadius: 16, border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#666' }}>{m.label}</button>
+                    <button key={m.key} onClick={() => send(`查${tl(m.label, currentLang)}`)} style={{ padding: '8px 14px', borderRadius: 16, border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#666' }}>{tl(m.label, currentLang)}</button>
                   ))}
                 </div>
               </div>
