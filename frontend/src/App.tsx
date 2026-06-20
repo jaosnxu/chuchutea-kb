@@ -9,7 +9,7 @@ interface Message {
   source?: string
 }
 
-interface Conversation { id: string; title: string; lang: 'zh' | 'ru'; messages: Message[] }
+interface Conversation { id: string; title: string; lang: 'zh' | 'ru'; messages: Message[]; pinned: boolean }
 
 const MODULES = [
   { key: 'product', label: '产品库' }, { key: 'sop', label: '操作SOP' },
@@ -61,7 +61,7 @@ const App: React.FC = () => {
   useEffect(() => {
     fetch('/api/conversations/list', { headers: { 'ngrok-skip-browser-warning': 'true' } }).then(r => r.json()).then((list: any[]) => {
       if (list.length > 0) {
-        setConvs(list.map(c => ({ ...c, messages: [] })))
+        setConvs(list.map(c => ({ ...c, messages: [], pinned: !!c.pinned })))
         setActiveId(list[0].id)
         fetch(`/api/conversations/${list[0].id}`).then(r => r.json()).then(d => {
           setConvs(prev => prev.map(c => c.id === d.id ? { ...c, messages: d.messages, lang: d.lang || 'zh' } : c))
@@ -86,10 +86,23 @@ const App: React.FC = () => {
         body: JSON.stringify({ title: '新对话', lang: currentLang, messages: [] }),
       })
       const d = await r.json()
-      const c: Conversation = { id: d.id, title: '新对话', lang: currentLang, messages: [] }
+      const c: Conversation = { id: d.id, title: '新对话', lang: currentLang, messages: [], pinned: false }
       setConvs(prev => [c, ...prev])
       setActiveId(c.id)
     } catch { /* fallback */ }
+  }
+
+  const renameConv = async (id: string, title: string) => {
+    await fetch(`/api/conversations/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'PUT', body: JSON.stringify({ title }) })
+    setConvs(prev => prev.map(c => c.id === id ? { ...c, title } : c))
+  }
+  const deleteConv = async (id: string) => {
+    await fetch(`/api/conversations/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'DELETE' })
+    setConvs(prev => { const f = prev.filter(c => c.id !== id); if (activeId === id) setActiveId(f[0]?.id || ''); return f })
+  }
+  const togglePin = async (id: string, p: boolean) => {
+    await fetch(`/api/conversations/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' }, method: 'PUT', body: JSON.stringify({ pinned: p }) })
+    setConvs(prev => prev.map(c => c.id === id ? { ...c, pinned: p } : c))
   }
 
   const switchConv = async (id: string) => {
@@ -220,8 +233,18 @@ const App: React.FC = () => {
             </div>
             <div style={S.historyList as React.CSSProperties}>
               {convs.map(c => (
-                <div key={c.id} style={S.historyItem(c.id === activeId)} onClick={() => switchConv(c.id)}>
-                  {c.title}
+                <div key={c.id} style={{ ...S.historyItem(c.id === activeId), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', fontSize: 13 }}
+                    onClick={() => switchConv(c.id)}
+                    onDoubleClick={() => { const t = prompt('改名', c.title); if (t && t.trim()) renameConv(c.id, t.trim()) }}>
+                    {c.pinned ? '📌 ' : ''}{c.title}
+                  </span>
+                  <span style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                    <button onClick={e => { e.stopPropagation(); togglePin(c.id, !c.pinned) }} title={c.pinned ? '取消置顶' : '置顶'}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 10, padding: 2, color: c.pinned ? '#333' : '#ccc' }}>📌</button>
+                    <button onClick={e => { e.stopPropagation(); if (confirm('确定删除？')) deleteConv(c.id) }} title="删除"
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 10, padding: 2, color: '#ccc' }}>✕</button>
+                  </span>
                 </div>
               ))}
             </div>
