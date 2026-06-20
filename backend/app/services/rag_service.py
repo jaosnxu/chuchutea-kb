@@ -1,4 +1,5 @@
 from typing import Optional
+import json
 import httpx
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,6 +119,54 @@ async def create_embedding(text: str) -> list[float]:
         data = resp.json()
         return data["data"][0]["embedding"]
 
+
+
+
+async def call_llm_stream(messages: list[dict], system_prompt: str = ""):
+    """流式调用大模型，逐chunk返回文本"""
+    if settings.llm_provider == "doubao":
+        api_key = settings.doubao_api_key
+        base_url = settings.doubao_base_url
+        model = settings.doubao_chat_model
+    else:
+        api_key = settings.deepseek_api_key
+        base_url = settings.deepseek_base_url
+        model = settings.deepseek_chat_model
+
+    full_messages = []
+    if system_prompt:
+        full_messages.append({"role": "system", "content": system_prompt})
+    full_messages.extend(messages)
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        async with client.stream(
+            "POST",
+            f"{base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": full_messages,
+                "temperature": 0.3,
+                "max_tokens": 2000,
+                "stream": True,
+            },
+        ) as response:
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except:
+                        pass
 
 async def answer_question(
     db: AsyncSession, query: str, lang: str, module: Optional[str] = None, history: Optional[list] = None

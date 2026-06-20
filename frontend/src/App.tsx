@@ -134,18 +134,46 @@ const App: React.FC = () => {
     if (!q || loading || !active) return
     setInput('')
     const lang = currentLang
+    const history = messages.slice(-6)
     const msgs: Message[] = [...messages, { role: 'user', content: q }]
     setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: msgs } : c))
     setLoading(true)
+    // 先加一个空的 assistant 消息（流式逐字填充）
+    setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: [...msgs, { role: 'assistant', content: '' }] } : c))
+
     try {
-      const res = await fetch('/api/chat/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q, lang }) })
-      const d = await res.json()
-      const updated = [...msgs, { role: 'assistant' as const, content: d.answer, references: d.references, source: d.source }]
-      setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: updated, title: c.title === '新对话' ? (msgs[0]?.content?.slice(0, MAX_TITLE) || '新对话') : c.title } : c))
-      saveConvToServer(activeId, updated, lang)
+      const res = await fetch('/api/chat/ask/stream', {
+        method: 'POST',
+        headers: { 'ngrok-skip-browser-warning': 'true', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, lang, history: history.map(h => ({ role: h.role, content: h.content })) }),
+      })
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+      let meta: any = {}
+
+      while (reader) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value, { stream: true })
+        for (const line of text.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') break
+            try {
+              const j = JSON.parse(data)
+              if (j.type === 'meta') meta = j
+              if (j.type === 'text') { fullText += j.text; setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: c.messages.map((m, i) => i === c.messages.length - 1 ? { ...m, content: fullText, source: meta.source, references: meta.references } : m) } : c)) }
+            } catch {}
+          }
+        }
+      }
+
+      const allMsgs = [...msgs, { role: 'assistant' as const, content: fullText, source: meta.source, references: meta.references }]
+      setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: allMsgs, title: c.title === '新对话' ? (msgs[0]?.content?.slice(0, MAX_TITLE) || '新对话') : c.title } : c))
+      saveConvToServer(activeId, allMsgs, lang)
     } catch {
-      const updated = [...msgs, { role: 'assistant' as const, content: '⚠️ 服务连接失败' }]
-      setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: updated } : c))
+      setConvs(prev => prev.map(c => c.id === activeId ? { ...c, messages: [...msgs, { role: 'assistant', content: '⚠️ 连接失败' }] } : c))
     }
     setLoading(false)
   }
