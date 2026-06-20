@@ -124,24 +124,10 @@ async def answer_question(
     knowledge_results = await search_knowledge(db, query, lang, module)
 
     if knowledge_results:
-        # 知识库有匹配 → 知识优先
-        context_parts = []
-        for i, item in enumerate(knowledge_results, 1):
-            context_parts.append(f"[{i}] {item['content']}")
-
-        context = "\n\n".join(context_parts)
-
-        system_prompt = (
-            f"你是奶茶连锁店的 AI 知识助手。请严格基于以下知识库内容回答问题，"
-            f"不要编造知识库中没有的信息。回答语言：{'中文' if lang == 'zh' else '俄语'}。\n\n"
-            f"知识库内容：\n{context}"
-        )
-
-        messages = [{"role": "user", "content": query}]
-        answer = await call_llm(messages, system_prompt)
-
+        # 知识库有匹配 → 直接返回原文，不做 LLM 改写
+        best = knowledge_results[0]
         return {
-            "answer": answer,
+            "answer": best["content"],  # ← 一模一样的原文
             "source": "knowledge_base",
             "references": [
                 {"title": r["title"], "module": r["module"], "id": r["id"]}
