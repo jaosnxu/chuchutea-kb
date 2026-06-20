@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,8 +17,8 @@ class SaveRequest(BaseModel):
 
 
 class UpdateRequest(BaseModel):
-    title: str | None = None
-    pinned: bool | None = None
+    title: Optional[str] = None
+    pinned: Optional[bool] = None
 
 
 @router.get("/list")
